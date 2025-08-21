@@ -1,0 +1,272 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+$accounts = [
+    "yousseftss876" => ["email" => "yousseftss876@gmail.com", "app_password" => "pjrk zwks biop hhkv"],
+    "ouigueman" => ["email" => "ouigueman@gmail.com", "app_password" => "pjrk zwks biop hhkv"],
+];
+
+$selectedAccount = isset($_POST['account']) ? $_POST['account'] : '';
+$emails = [];
+$error = '';
+function connectToGmail($email, $password) {
+    $hostname = '{imap.gmail.com:993/imap/ssl}';
+    $connection = @imap_open($hostname, $email, $password);
+    
+    if (!$connection) {
+        return false;
+    }
+    
+    return $connection;
+}
+
+function getEmailsFromFolder($connection, $folder, $folderName) {
+    $emails = [];
+
+    if (!@imap_reopen($connection, '{imap.gmail.com:993/imap/ssl}' . $folder)) {
+        return $emails;
+    }
+    
+    $messageCount = imap_num_msg($connection);
+    
+    if ($messageCount == 0) {
+        return $emails;
+    }
+    
+    $start = max(1, $messageCount - 19);
+    $end = $messageCount;
+    
+    for ($i = $end; $i >= $start; $i--) {
+        $header = @imap_headerinfo($connection, $i);
+        
+        if ($header) {
+            $fromEmail = '';
+            $fromName = '';
+            
+            if (isset($header->from[0])) {
+                $fromEmail = isset($header->from[0]->mailbox) && isset($header->from[0]->host) 
+                    ? $header->from[0]->mailbox . '@' . $header->from[0]->host 
+                    : 'Unknown';
+                $fromName = isset($header->from[0]->personal) 
+                    ? imap_mime_header_decode($header->from[0]->personal)[0]->text 
+                    : $fromEmail;
+            }
+            
+            $subject = isset($header->subject) 
+                ? imap_mime_header_decode($header->subject)[0]->text 
+                : 'No Subject';
+            
+            $emails[] = [
+                'folder' => $folderName,
+                'from_email' => $fromEmail,
+                'from_name' => $fromName,
+                'subject' => $subject,
+                'title' => $subject,
+                'date' => isset($header->date) ? strtotime($header->date) : time(),
+                'date_formatted' => isset($header->date) ? date('M j, Y g:i A', strtotime($header->date)) : 'Unknown'
+            ];
+        }
+    }
+    
+    return $emails;
+}
+
+if ($selectedAccount && isset($accounts[$selectedAccount])) {
+    $accountData = $accounts[$selectedAccount];
+    
+ 
+    $connection = connectToGmail($accountData['email'], $accountData['app_password']);
+    
+    if ($connection) {
+ 
+        $inboxEmails = getEmailsFromFolder($connection, 'INBOX', 'Inbox');
+        
+ 
+        $spamEmails = getEmailsFromFolder($connection, '[Gmail]/Spam', 'Spam');
+        
+    
+        $emails = array_merge($inboxEmails, $spamEmails);
+        
+   
+        usort($emails, function($a, $b) {
+            return $b['date'] - $a['date'];
+        });
+        
+        
+        $emails = array_slice($emails, 0, 10);
+        
+  
+        imap_close($connection);
+    } else {
+        $error = 'Failed to connect to Gmail account: ' . $accountData['email'] . '. Please check your App Password.';
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSS Gmail Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-envelope text-blue-600 mr-3"></i>
+                TSSW Gmail Access
+            </h1>
+            <p class="text-gray-600">Access and manage your Gmail accounts securely</p>
+        </div>
+
+       
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <form method="POST" class="flex flex-col sm:flex-row items-center gap-4">
+                <label for="account" class="text-lg font-semibold text-gray-700 whitespace-nowrap">
+                    <i class="fas fa-user-circle mr-2"></i>
+                    Select Account:
+                </label>
+                <select 
+                    name="account" 
+                    id="account" 
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    onchange="this.form.submit()"
+                >
+                    <option value="">Choose an account...</option>
+                    <?php foreach ($accounts as $key => $account): ?>
+                        <option value="<?php echo htmlspecialchars($key); ?>" 
+                                <?php echo ($selectedAccount === $key) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($key . ' (' . $account['email'] . ')'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+
+        <?php if ($error): ?>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-red-800 font-semibold">Connection Error</h3>
+                        <p class="text-red-700"><?php echo htmlspecialchars($error); ?></p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($selectedAccount && !$error): ?>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-info-circle text-blue-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-blue-800 font-semibold">Connected to: <?php echo htmlspecialchars($selectedAccount); ?></h3>
+                        <p class="text-blue-700"><?php echo htmlspecialchars($accounts[$selectedAccount]['email']); ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <?php if (empty($emails)): ?>
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                    <i class="fas fa-inbox text-gray-400 text-4xl mb-4"></i>
+                    <h3 class="text-gray-600 text-lg font-semibold mb-2">No Recent Emails</h3>
+                    <p class="text-gray-500">No emails found in Inbox or Spam folders.</p>
+                </div>
+            <?php else: ?>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <h2 class="text-xl font-semibold text-gray-800">
+                            <i class="fas fa-list mr-2"></i>
+                            Latest 10 Emails
+                        </h2>
+                        <p class="text-gray-600 text-sm mt-1">Showing emails from Inbox and Spam folders</p>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Folder</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <?php foreach ($emails as $email): ?>
+                                    <tr class="hover:bg-gray-50 transition-colors duration-150 email-row">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <?php if ($email['folder'] === 'Inbox'): ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    <i class="fas fa-inbox mr-1"></i>
+                                                    Inbox
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                    Spam
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <div class="text-sm font-medium text-gray-900 truncate max-w-xs">
+                                                    <?php echo htmlspecialchars($email['from_name']); ?>
+                                                </div>
+                                                <div class="text-sm text-gray-500 truncate max-w-xs">
+                                                    <?php echo htmlspecialchars($email['from_email']); ?>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm text-gray-900 font-medium truncate max-w-md" title="<?php echo htmlspecialchars($email['subject']); ?>">
+                                                <?php echo htmlspecialchars($email['subject']); ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <?php echo htmlspecialchars($email['date_formatted']); ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php elseif (!$selectedAccount): ?>
+            <div class="text-center py-16">
+                <i class="fas fa-mail-bulk text-gray-300 text-6xl mb-6"></i>
+                <h2 class="text-2xl font-semibold text-gray-600 mb-4">Welcome to TSS Gmail Access</h2>
+                <p class="text-gray-500 text-lg mb-8">Select a Gmail account from the dropdown above to view your latest emails.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                        <i class="fas fa-shield-alt text-blue-500 text-2xl mb-3"></i>
+                        <h3 class="font-semibold text-gray-800 mb-2">Secure Connection</h3>
+                        <p class="text-gray-600 text-sm">Using App Passwords for secure Gmail access</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                        <i class="fas fa-sync-alt text-green-500 text-2xl mb-3"></i>
+                        <h3 class="font-semibold text-gray-800 mb-2">Real-time Access</h3>
+                        <p class="text-gray-600 text-sm">View your latest emails from Inbox and Spam</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                        <i class="fas fa-mobile-alt text-purple-500 text-2xl mb-3"></i>
+                        <h3 class="font-semibold text-gray-800 mb-2">Responsive Design</h3>
+                        <p class="text-gray-600 text-sm">Works perfectly on all devices</p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+        <div class="text-center mt-12 py-6 border-t border-gray-200">
+            <p class="text-gray-500 text-sm">
+                <i class="fas fa-code mr-1"></i>
+                TSSW Gmail Access &copy; <?php echo date('Y'); ?> - Secure Gmail IMAP Reader
+            </p>
+        </div>
+    </div>
+</body>
+</html>

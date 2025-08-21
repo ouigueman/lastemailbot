@@ -1,0 +1,14 @@
+this python is working good, but the main problems that she had is that it take to long to work if the user hit over then 10 user, so i decide to make a small change on the bac-end of this python app:
+
+-i want instead of each user connect with his account and when he chose a gmail account, the python app will start get last 50 emails every last 1 secound, and display them in the interface. I want that the app when a user select a gmail account he will start a connection with the gmail account selected using imap, and this connection will never break until no user is selecting the gmail account, when a user select the gmail, he will get last 50 emails, of course with there informations: ("Type folder is it inbox or spam","if it is inbox - from categories","From name","From email","Subject", "date of receive"). how to detect which folder or which categories is already coded and hadle in code
+
+- if new message arrive to the gmail account, the message must get those new emails using IMAP IDLE while the connection is open
+- if a user select a gmail account, and he found that already have connection becaus some user is already selected befor and work it, he will just also use this connection without opening new one, if the first user leave, the connection with this gmail account will not break because the second user is still using the gmail account, and of course if there new emails on the gmail account, it display to both of them.
+
+-for each gmail account must have one connection, but it may have multiple user who seeing the emails or new emails
+
+-Try to handl well "IMAP IDLE" because it the main reasons how my users will get new emails, try to avoid any bugs or erreurs to make the app easy to use, of course the means must not being read, the app must get the emails without reading them
+-of course this python app must have ability to open multiple connection with mutliple gmail account, and this must never stop her from doing her job ("DISPLAYIN LAST 50 EMAILS") with there info
+
+
+you will check what i ask from you, and if you have question or you need more information, just ask me befor you start update the code, in order to make you well understand what i want without any missunderstand

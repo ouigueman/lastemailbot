@@ -1,0 +1,30 @@
+this is good, i want to make some update on this app:
+The company is called tss, an there is tss1, tss2, tss3, tssw, those are entities of the company, i want you to make a dashbord login that allow users to acess to this gmail emails apps, but the logic of the login will be like this:
+From file txt that called "users.txt" it will be like this:
+Tss1, username1, password
+Tss2, username2 , password
+Tss2, username3, password
+Tssw, username4, password
+Tss1, username5, password
+Tss3, username6, password
+
+And so like that, whan a user enter his username and password if it was exactly that are set in the txt file, it will have the access of the exact entities that he have if it was tss1 or tss2 or tss3, and for each entities it will have it own gmail account, user of tss1 must not have the access of seeing emails of tss2 or tss3, and user of tss2 must not have the acess of seeing the gmail emails of tss1 or tss3, and user of tss3 must not have the acess of seeing the gmail emails of tss1 or tss2.
+But the user of tssw must have the access to see all of gmail emails of all entities of course with a drop down.
+
+The gmail account will be stored like this in another txt file called "gmailaccount.txt" and have like this:
+
+Tss1,account1@gmail.com,app_password_of_account1
+Tss3,account2@gmail.com,app_password_of_account2
+Tss2,account3@gmail.com,app_password_of_account3
+Tss3,account4@gmail.com,app_password_of_account4
+Tss1,account5@gmail.com,app_password_of_account5
+
+Each gmail account will be affected to his own entitie that he was declared with, for example account1 will be display of dahsbord of tss1, and account4 will be displayed on dashbord of entitie of tss3
+
+But be aware that the user of tssw must have the access of all emails gmail account
+after login of the users, you must Remember them without asking them to put again there username and there password if they not did "log out"
+you can allow that the same username be logged twice in the same time.
+
+you must customize well the login interface, try to make this python app well structed, easy to use, fast to interact
+
+try to hold all the same functions of this app in order to not damage it

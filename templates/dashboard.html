@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSS Gmail Access - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .refresh-pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .user-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .email-item {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s ease;
+        }
+
+        .email-item:hover {
+            background-color: #f9fafb;
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .sidebar-item.active {
+            background-color: #fecaca;
+            border-right: 3px solid #dc2626;
+        }
+
+        .category-tab {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .category-tab:hover {
+            background-color: #f3f4f6;
+        }
+
+        .category-tab.active {
+            background-color: #dbeafe;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .new-badge {
+            animation: newEmailPulse 2s infinite;
+        }
+
+        @keyframes newEmailPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header with User Info and Logout -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="container mx-auto px-2 sm:px-4 py-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-800">
+                        <i class="fas fa-envelope text-blue-600 mr-2"></i>
+                        TSS Gmail Access
+                    </h1>
+                </div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <!-- User Info -->
+                    <div class="user-badge text-white px-3 py-2 rounded-lg">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-user-circle"></i>
+                            <div class="text-sm">
+                                <div class="font-semibold">{{ current_user.username }}</div>
+                                <div class="text-xs opacity-90">{{ current_user.entity }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Logout Button -->
+                    <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center text-sm">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-7xl">
+        <!-- Welcome Section -->
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                Welcome, {{ current_user.username }}!
+            </h2>
+            <p class="text-gray-600">
+                Access and manage your 
+                {% if current_user.entity.lower() == 'tssw' %}
+                    <span class="font-semibold text-blue-600">all TSS entities'</span>
+                {% else %}
+                    <span class="font-semibold text-blue-600">{{ current_user.entity }}</span>
+                {% endif %}
+                Gmail accounts securely
+            </p>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-6 p-4 rounded-lg {% if category == 'error' %}bg-red-50 border border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border border-green-200 text-green-700{% else %}bg-blue-50 border border-blue-200 text-blue-700{% endif %}">
+                        <div class="flex items-center">
+                            <i class="fas {% if category == 'error' %}fa-exclamation-triangle{% elif category == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                            {{ message }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Account Selection and Filters Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div id="mainForm" class="space-y-4">
+                <!-- Account Selection Row -->
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <label for="account" class="text-lg font-semibold text-gray-700 whitespace-nowrap">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        Select Account:
+                    </label>
+                    <select 
+                        name="account" 
+                        id="account" 
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    >
+                        <option value="">Choose an account...</option>
+                        {% for key, account in accounts.items() %}
+                            <option value="{{ key }}" {% if selected_account == key %}selected{% endif %}>
+                                {{ account.display_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Email Limit and Search Filters Row -->
+                <div id="filters-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-gray-200" style="display: none;">
+                    <!-- Email Limit -->
+                    <div class="flex flex-col">
+                        <label for="email_limit" class="text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-list-ol mr-2"></i>
+                            Email Limit:
+                        </label>
+                        <select 
+                            name="email_limit" 
+                            id="email_limit" 
+                            class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        >
+                            <option value="50" {% if email_limit == 50 %}selected{% endif %}>50 emails</option>
+                        </select>
+                    </div>
+
+                    <!-- Search by Sender -->
+                    <div class="flex flex-col">
+                        <label for="search_sender" class="text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-user mr-2"></i>
+                            Search by Sender:
+                        </label>
+                        <input 
+                            type="text" 
+                            name="search_sender" 
+                            id="search_sender" 
+                            value="{{ search_sender }}"
+                            placeholder="Enter sender name or email..."
+                            class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        >
+                    </div>
+
+                    <!-- Search by Subject -->
+                    <div class="flex flex-col">
+                        <label for="search_subject" class="text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-envelope-open-text mr-2"></i>
+                            Search by Subject:
+                        </label>
+                        <input 
+                            type="text" 
+                            name="search_subject" 
+                            id="search_subject" 
+                            value="{{ search_subject }}"
+                            placeholder="Enter subject keywords..."
+                            class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Container -->
+        <div id="error-container" style="display: none;"></div>
+
+        <!-- Connection Status -->
+        <div id="connection-status" style="display: none;"></div>
+
+        <!-- Gmail-like Interface -->
+        <div id="gmail-interface" style="display: none;">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="flex h-screen max-h-[600px]">
+                    <!-- Sidebar -->
+                    <div class="w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0">
+                        <div class="p-4 space-y-2">
+                            <!-- Inbox -->
+                            <div id="inbox-sidebar" class="sidebar-item active flex items-center justify-between p-3 rounded-lg cursor-pointer">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-inbox text-gray-600"></i>
+                                    <span class="font-medium text-gray-800">Inbox</span>
+                                </div>
+                                <span id="inbox-count" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full">0</span>
+                            </div>
+                            
+                            <!-- Spam -->
+                            <div id="spam-sidebar" class="sidebar-item flex items-center justify-between p-3 rounded-lg cursor-pointer">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-exclamation-triangle text-gray-600"></i>
+                                    <span class="font-medium text-gray-800">Spam</span>
+                                </div>
+                                <span id="spam-count" class="bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded-full">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content Area -->
+                    <div class="flex-1 flex flex-col">
+                        <!-- Category Tabs (for Inbox only) -->
+                        <div id="category-tabs" class="border-b border-gray-200 bg-white">
+                            <div class="flex space-x-0 overflow-x-auto">
+                                <div class="category-tab active px-6 py-3 text-sm font-medium text-gray-700" data-category="Primary">
+                                    <i class="fas fa-inbox mr-2"></i>Primary
+                                </div>
+                                <div class="category-tab px-6 py-3 text-sm font-medium text-gray-700" data-category="Promotions">
+                                    <i class="fas fa-tag mr-2"></i>Promotions
+                                </div>
+                                <div class="category-tab px-6 py-3 text-sm font-medium text-gray-700" data-category="Social">
+                                    <i class="fas fa-users mr-2"></i>Social
+                                </div>
+                                <div class="category-tab px-6 py-3 text-sm font-medium text-gray-700" data-category="Updates">
+                                    <i class="fas fa-info-circle mr-2"></i>Updates
+                                </div>
+                                <div class="category-tab px-6 py-3 text-sm font-medium text-gray-700" data-category="Forums">
+                                    <i class="fas fa-comments mr-2"></i>Forums
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email List -->
+                        <div id="email-list" class="flex-1 overflow-y-auto">
+                            <div id="emails-container">
+                                <!-- Emails will be dynamically loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Default Welcome Screen -->
+        <div id="welcome-screen">
+            {% if not selected_account %}
+                <div class="text-center py-16">
+                    <i class="fas fa-mail-bulk text-gray-300 text-6xl mb-6"></i>
+                    <h2 class="text-2xl font-semibold text-gray-600 mb-4">Welcome to Your {{ current_user.entity }} Dashboard</h2>
+                    <p class="text-gray-500 text-lg mb-8">
+                        {% if current_user.entity.lower() == 'tssw' %}
+                            You have access to all TSS entities. Select any Gmail account from the dropdown above to view emails.
+                        {% else %}
+                            You have access to {{ current_user.entity }} emails. Select a Gmail account from the dropdown above to view your latest emails.
+                        {% endif %}
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <i class="fas fa-shield-alt text-blue-500 text-2xl mb-3"></i>
+                            <h3 class="font-semibold text-gray-800 mb-2">Secure Connection</h3>
+                            <p class="text-gray-600 text-sm">Enabling secure Gmail sign-in for third-party access</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <i class="fas fa-sync-alt text-green-500 text-2xl mb-3"></i>
+                            <h3 class="font-semibold text-gray-800 mb-2">Real-time Access</h3>
+                            <p class="text-gray-600 text-sm">Live updates every 1 second without page refresh</p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <i class="fas {% if current_user.entity.lower() == 'tssw' %}fa-crown{% else %}fa-building{% endif %} text-purple-500 text-2xl mb-3"></i>
+                            <h3 class="font-semibold text-gray-800 mb-2">
+                                {% if current_user.entity.lower() == 'tssw' %}
+                                    Full Access
+                                {% else %}
+                                    {{ current_user.entity }} Access
+                                {% endif %}
+                            </h3>
+                            <p class="text-gray-600 text-sm">
+                                {% if current_user.entity.lower() == 'tssw' %}
+                                    Access to all TSS entity email accounts
+                                {% else %}
+                                    Secure access to your entity's email accounts
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        let searchTimeout;
+        let allEmails = [];
+        let lastUpdateTime = null;
+        let currentView = 'inbox'; // 'inbox' or 'spam'
+        let currentCategory = 'Primary'; // for inbox view
+        let eventSource = null;
+        let isConnected = false;
+        let previousEmailUIDs = new Set();
+        let isConnecting = false;
+
+        // Start real-time email updates using Server-Sent Events
+        function startRealTimeUpdates(accountKey) {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            // Get email for loading message
+            const accountSelect = document.getElementById('account');
+            const selectedOption = accountSelect.options[accountSelect.selectedIndex];
+            const accountEmail = selectedOption ? selectedOption.textContent.split(' - ')[1] || accountKey : accountKey;
+            
+            showConnectionLoading(accountEmail);
+
+            eventSource = new EventSource(`/events/${accountKey}`);
+            
+            eventSource.onopen = function() {
+                isConnected = true;
+                isConnecting = false;
+                console.log('Real-time connection established');
+                hideConnectionStatus();
+                hideLoadingError();
+            };
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.emails) {
+                        // Check for new emails by comparing UIDs
+                        const currentUIDs = new Set(data.emails.map(email => email.uid));
+                        
+                        if (previousEmailUIDs.size > 0) {
+                            const newEmails = [...currentUIDs].filter(uid => !previousEmailUIDs.has(uid));
+                            if (newEmails.length > 0) {
+                                showNewEmailNotification(newEmails.length);
+                            }
+                        }
+                        
+                        // Update email data
+                        allEmails = [...data.emails];
+                        updateEmailCounts();
+                        updateEmailDisplay();
+                        hideLoading();
+                        
+                        // Hide connection status on successful data load
+                        if (previousEmailUIDs.size === 0) {
+                            hideConnectionStatus();
+                        }
+                        
+                        // Update previous UIDs for next comparison
+                        previousEmailUIDs = currentUIDs;
+                    } else if (data.error) {
+                        showConnectionError(data.error);
+                    }
+                } catch (error) {
+                    console.error('Error parsing SSE data:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('SSE connection error:', event);
+                isConnected = false;
+                isConnecting = false;
+                showConnectionError('Connection lost. Attempting to reconnect...');
+                
+                // Try to reconnect after 5 seconds
+                setTimeout(() => {
+                    if (document.getElementById('account').value === accountKey) {
+                        startRealTimeUpdates(accountKey);
+                    }
+                }, 5000);
+            };
+        }
+
+        // Stop real-time updates
+        function stopRealTimeUpdates() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            isConnected = false;
+        }
+
+        // Fetch emails initially using AJAX (fallback)
+        async function fetchEmailsOnce(accountKey) {
+            isConnecting = true;
+            
+            // Get email for loading message
+            const accountSelect = document.getElementById('account');
+            const selectedOption = accountSelect.options[accountSelect.selectedIndex];
+            const accountEmail = selectedOption ? selectedOption.textContent.split(' - ')[1] || accountKey : accountKey;
+            
+            showConnectionLoading(accountEmail);
+            
+            try {
+                const response = await fetch('/fetch_emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        account: accountKey,
+                        email_limit: 50
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    showConnectionError(data.error);
+                    isConnecting = false;
+                    return false;
+                }
+                
+                if (data.emails) {
+                    previousEmailUIDs = new Set(data.emails.map(email => email.uid));
+                    allEmails = [...data.emails];
+                    updateEmailCounts();
+                    updateEmailDisplay();
+                    hideConnectionStatus();
+                }
+                
+                isConnecting = false;
+                return true;
+                
+            } catch (error) {
+                console.error('Error fetching emails:', error);
+                showConnectionError('Failed to connect to Gmail account. Please check your App Password.');
+                isConnecting = false;
+                return false;
+            }
+        }
+
+        // Check if email is new (received in last 5 minutes)
+        function isNewEmail(email) {
+            const now = new Date();
+            const emailDate = new Date(email.date_timestamp * 1000);
+            const diffInSeconds = (now - emailDate) / 1000;
+            return diffInSeconds <= 300; // 5 minutes
+        }
+        
+
+        // Get emails for current view and category
+        function getFilteredEmails() {
+            const searchSender = document.getElementById('search_sender')?.value.toLowerCase().trim() || '';
+            const searchSubject = document.getElementById('search_subject')?.value.toLowerCase().trim() || '';
+            
+            let filteredEmails = allEmails.filter(email => {
+                // Filter by view (inbox/spam)
+                if (currentView === 'spam') {
+                    return email.folder === 'Spam';
+                } else {
+                    // Inbox view - filter by category
+                    const folderCategory = email.folder.replace('Inbox/', '');
+                    return email.folder.startsWith('Inbox/') && folderCategory === currentCategory;
+                }
+            });
+
+            // Apply search filters
+            if (searchSender || searchSubject) {
+                filteredEmails = filteredEmails.filter(email => {
+                    const fromName = (email.from_name || '').toLowerCase();
+                    const fromEmail = (email.from_email || '').toLowerCase();
+                    const subject = (email.subject || '').toLowerCase();
+                    
+                    const senderMatch = !searchSender || 
+                        fromName.includes(searchSender) ||
+                        fromEmail.includes(searchSender);
+                    
+                    const subjectMatch = !searchSubject ||
+                        subject.includes(searchSubject);
+                    
+                    return senderMatch && subjectMatch;
+                });
+            }
+
+            return filteredEmails;
+        }
+
+        // Update email counts in sidebar
+        function updateEmailCounts() {
+            const inboxEmails = allEmails.filter(email => email.folder.startsWith('Inbox/')).length;
+            const spamEmails = allEmails.filter(email => email.folder === 'Spam').length;
+            
+            const inboxCountElement = document.getElementById('inbox-count');
+            const spamCountElement = document.getElementById('spam-count');
+            
+            if (inboxCountElement) {
+                inboxCountElement.textContent = inboxEmails;
+            }
+            if (spamCountElement) {
+                spamCountElement.textContent = spamEmails;
+            }
+        }
+
+        // Update the email display
+        function updateEmailDisplay() {
+            const emailsContainer = document.getElementById('emails-container');
+            const filteredEmails = getFilteredEmails();
+            const emailLimit = parseInt(document.getElementById('email_limit')?.value || 20);
+            const limitedEmails = filteredEmails.slice(0, emailLimit);
+
+            if (limitedEmails.length === 0) {
+                emailsContainer.innerHTML = `
+                    <div class="p-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-4"></i>
+                        <p class="text-lg">No emails found</p>
+                        <p class="text-sm">Try adjusting your search filters</p>
+                    </div>
+                `;
+            } else {
+                emailsContainer.innerHTML = limitedEmails.map(email => `
+                    <div class="email-item p-4 flex items-center space-x-4">
+                        <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-center">
+                            
+                            <!-- From Name -->
+                            <div class="font-medium text-gray-900 truncate">
+                                ${isNewEmail(email) ? '<span class="new-badge bg-blue-500 text-white text-xs px-2 py-1 rounded-full ml-2">New</span>' : ''}
+                                ${email.from_name || email.from_email.split('@')[0]}
+                            </div>
+                            
+                            
+                            <!-- From Domain -->
+                            <div class="text-gray-700 truncate">
+                                ${email.from_email.split('@')[1] || email.from_email}
+                            </div>
+                            
+                            
+                            <!-- Subject -->
+                            <div class="text-gray-600 truncate col-span-1 md:col-span-1">
+                                ${email.subject || 'No Subject'}
+                            </div>
+                            
+                            <!-- Time -->
+                            <div class="text-gray-500 text-sm text-right">
+                                ${email.date}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                                
+                                
+        
+            }
+
+            lastUpdateTime = new Date();
+        }
+
+        // Show/hide category tabs based on current view
+        function updateCategoryTabs() {
+            const categoryTabs = document.getElementById('category-tabs');
+            if (currentView === 'inbox') {
+                categoryTabs.style.display = 'block';
+            } else {
+                categoryTabs.style.display = 'none';
+            }
+        }
+
+        // Loading states
+        function showLoading() {
+            const emailsContainer = document.getElementById('emails-container');
+            emailsContainer.innerHTML = `
+                <div class="p-8 text-center">
+                    <i class="fas fa-spinner fa-spin text-blue-500 text-3xl mb-4"></i>
+                    <h3 class="text-gray-700 text-lg font-semibold">Loading Emails...</h3>
+                    <p class="text-gray-500">Please wait while we fetch your latest emails.</p>
+                </div>
+            `;
+        }
+
+        function hideLoading() {
+            // Loading state is replaced by email content in updateEmailDisplay
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center text-red-700">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        ${message}
+                    </div>
+                </div>
+            `;
+            errorContainer.style.display = 'block';
+        }
+
+        function hideLoadingError() {
+            const errorContainer = document.getElementById('error-container');
+            if (errorContainer) {
+                errorContainer.style.display = 'none';
+            }
+        }
+
+        // Connection status functions
+        function showConnectionLoading(accountEmail) {
+            const connectionStatus = document.getElementById('connection-status');
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center text-blue-700">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            <span>Connecting to <span class="font-semibold cursor-pointer select-all" onclick="navigator.clipboard.writeText('${accountEmail}')" title="Click to copy">${accountEmail}</span> account...</span>
+                        </div>
+                    </div>
+                `;
+                connectionStatus.style.display = 'block';
+            }
+        }
+
+        function hideConnectionStatus() {
+            const connectionStatus = document.getElementById('connection-status');
+            if (connectionStatus) {
+                connectionStatus.style.display = 'none';
+            }
+        }
+
+        function showConnectionError(message) {
+            const connectionStatus = document.getElementById('connection-status');
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center text-red-700">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                connectionStatus.style.display = 'block';
+            }
+        }
+
+        // New email notification
+        function showNewEmailNotification(count) {
+            // Remove existing notification
+            const existingNotification = document.getElementById('new-email-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.id = 'new-email-notification';
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse';
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-envelope mr-2"></i>
+                    ${count} new email${count > 1 ? 's' : ''}
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (notification) {
+                    notification.style.opacity = '0';
+                    notification.style.transition = 'opacity 0.5s';
+                    setTimeout(() => notification.remove(), 500);
+                }
+            }, 3000);
+        }
+
+        // Unsubscribe from account when switching
+        async function unsubscribeFromAccount(accountKey) {
+            try {
+                await fetch(`/unsubscribe/${accountKey}`, {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.error('Error unsubscribing:', error);
+            }
+        }
+
+        // Event handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const accountSelect = document.getElementById('account');
+            const filtersSection = document.getElementById('filters-section');
+            const searchSender = document.getElementById('search_sender');
+            const searchSubject = document.getElementById('search_subject');
+            const emailLimit = document.getElementById('email_limit');
+
+            // Show/hide interface when account is selected
+            accountSelect.addEventListener('change', async function() {
+                // Reset previous email UIDs when switching accounts
+                previousEmailUIDs = new Set();
+                
+                // Stop previous connections
+                stopRealTimeUpdates();
+                
+                if (this.value) {
+                    filtersSection.style.display = 'block';
+                    document.getElementById('welcome-screen').style.display = 'none';
+                    document.getElementById('gmail-interface').style.display = 'block';
+                    
+                    // Start real-time updates for the new account
+                    const success = await fetchEmailsOnce(this.value);
+                    if (success) {
+                        startRealTimeUpdates(this.value);
+                    }
+                } else {
+                    filtersSection.style.display = 'none';
+                    document.getElementById('welcome-screen').style.display = 'block';
+                    document.getElementById('gmail-interface').style.display = 'none';
+                    hideConnectionStatus();
+                }
+            });
+
+            // Sidebar navigation
+            document.getElementById('inbox-sidebar').addEventListener('click', function() {
+                currentView = 'inbox';
+                currentCategory = 'Primary';
+                
+                // Update active states
+                document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                
+                document.querySelectorAll('.category-tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelector('.category-tab[data-category="Primary"]').classList.add('active');
+                
+                updateCategoryTabs();
+                updateEmailDisplay();
+            });
+
+            document.getElementById('spam-sidebar').addEventListener('click', function() {
+                currentView = 'spam';
+                
+                // Update active states
+                document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+                this.classList.add('active');
+                
+                updateCategoryTabs();
+                updateEmailDisplay();
+            });
+
+            // Category tabs
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    currentCategory = this.dataset.category;
+                    
+                    // Update active states
+                    document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    updateEmailDisplay();
+                });
+            });
+
+            // Search filters
+            function setupSearchFilter(element) {
+                element.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        updateEmailDisplay();
+                    }, 300);
+                });
+            }
+
+            if (searchSender) setupSearchFilter(searchSender);
+            if (searchSubject) setupSearchFilter(searchSubject);
+
+            // Email limit change
+            if (emailLimit) {
+                emailLimit.addEventListener('change', function() {
+                    updateEmailDisplay();
+                });
+            }
+        });
+                
+                
+                document.getElementById("copy-email").addEventListener("click", function() {
+    const email = document.getElementById("connected-email").innerText.trim();
+    if (email) {
+        navigator.clipboard.writeText(email).then(() => {
+            const feedback = document.getElementById("copy-feedback");
+            feedback.style.opacity = "1";
+            setTimeout(() => feedback.style.opacity = "0", 1500);
+        });
+    }
+});
+
+    </script>
+</body>
+</html>
